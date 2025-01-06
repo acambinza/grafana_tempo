@@ -1,0 +1,53 @@
+version: '3.8'
+
+networks:
+  app_tempo:
+    driver: bridge
+
+services:
+
+  app_g_tempo:
+    build: ./app_example
+    image: app_g_tempo
+    container_name: app_g_tempo
+    links:
+      - tempo
+    ports:
+      - 3001:3001
+    networks:
+      - app_tempo
+
+  tempo:
+    image: grafana/tempo:2.7.0-rc.0
+    container_name: tempo
+    ports:
+      - "3100:3100"     # porta que vai enviar no grafana datasource
+      - "55680:55680"   
+      - "4318:4318"  # porta que vai receber os traces das aplicacaoes
+      #- "4317:4317" #gRPC
+      #- "9411:9411" #ZipKin
+    volumes:
+      - ./config/tempo/tempo-config.yml:/etc/tempo/tempo-config.yml
+      - ./tempo-data:/var/lib/tempo
+    command: ["-config.file=/etc/tempo/tempo-config.yml"]
+    networks:
+      - app_tempo
+
+
+
+  grafana:
+    image: grafana/grafana:10.1.2
+    container_name: grafana_tempo
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - tempo
+    volumes:
+      - ./config/grafana:/etc/grafana/provisioning/datasources
+      - ./config/grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./dashboards:/etc/grafana/provisioning/dashboards
+    networks:
+      - app_tempo
